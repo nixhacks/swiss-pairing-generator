@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Swiss Pairing Generator &mdash; 4-5 Rd SS, G/90;+30</title>
+<style>
+  :root{
+    --felt:#1F3D2B;
+    --felt-dark:#16301F;
+    --ivory:#F2ECDD;
+    --paper:#FAF7F0;
+    --walnut:#8B5E34;
+    --walnut-dark:#6E4826;
+    --ink:#2A2620;
+    --ink-soft:#5B5548;
+    --line:#D8CFB8;
+    --amber:#B5651D;
+    --amber-bg:#FBEADB;
+    --white-sq:#F2ECDD;
+    --black-sq:#1F3D2B;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Consolas, Menlo, monospace;
+    --serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:16px;
+    line-height:1.45;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:var(--serif);font-weight:700;margin:0 0 .4em;color:var(--felt-dark)}
+  .mono{font-family:var(--mono)}
+  input,select,textarea,button{font-family:var(--serif);font-size:15px;color:var(--ink)}
+  button{cursor:pointer}
+
+  #app{max-width:1180px;margin:0 auto;padding:0 16px 80px}
+
+  header.top{background:var(--felt);color:var(--ivory);padding:22px 20px 18px;margin:0 -16px;
+    position:relative;overflow:hidden}
+  header.top::before{content:"";position:absolute;inset:0;
+    background-image:
+      repeating-linear-gradient(90deg, var(--black-sq) 0 32px, transparent 32px 64px),
+      repeating-linear-gradient(0deg, rgba(0,0,0,.12) 0 32px, transparent 32px 64px);
+    opacity:.06;pointer-events:none}
+  header.top h1{color:var(--ivory);font-size:26px;letter-spacing:.2px;position:relative}
+  header.top .sub{color:#CFE0D3;font-size:14px;position:relative}
+  header.top .event-strip{margin-top:12px;display:flex;flex-wrap:wrap;gap:10px 22px;
+    font-family:var(--mono);font-size:13px;color:var(--ivory);position:relative}
+  header.top .event-strip b{color:#D9C08A;font-weight:600}
+
+  nav.tabs{display:flex;background:var(--felt-dark);margin:0 -16px 22px;overflow-x:auto}
+  nav.tabs button{background:none;border:none;color:#CFE0D3;padding:12px 18px;font-size:14px;
+    white-space:nowrap;border-bottom:3px solid transparent}
+  nav.tabs button.active{color:#fff;border-bottom-color:var(--walnut)}
+
+  section.pane{display:none}
+  section.pane.active{display:block}
+
+  .card{background:#fff;border:1px solid var(--line);border-radius:3px;padding:20px;margin-bottom:18px}
+  .card h2{font-size:19px;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:16px}
+
+  .row{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:14px}
+  .row>div{flex:0 0 auto}
+  .grow{flex:2 1 260px}
+  label{display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px;
+    font-family:var(--mono);text-transform:lowercase}
+  input,select,textarea{padding:8px 10px;border:1px solid var(--line);border-radius:2px;background:var(--paper)}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--walnut);outline-offset:0}
+  textarea{width:100%;min-height:150px;font-family:var(--mono);font-size:14px;resize:vertical}
+
+  button{display:inline-block;padding:9px 16px;border-radius:2px;border:1px solid var(--walnut);
+    background:var(--walnut);color:#fff;font-size:14px;font-weight:600}
+  button:hover{background:var(--walnut-dark)}
+  button.sec{background:transparent;color:var(--walnut-dark);border-color:var(--walnut)}
+  button.sec:hover{background:var(--amber-bg)}
+  button.ghost{background:transparent;color:var(--ink-soft);border-color:var(--line)}
+  button.ghost:hover{background:var(--paper)}
+  button.danger{background:transparent;color:#9C3B2A;border-color:#9C3B2A}
+  button.danger:hover{background:#FBEDEA}
+  button.small{padding:5px 10px;font-size:12.5px}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{padding:8px 9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+  th{font-family:var(--mono);font-size:11.5px;text-transform:lowercase;color:var(--ink-soft);
+    font-weight:600;letter-spacing:.02em}
+  tbody tr:hover{background:#FBF9F3}
+  td.num,th.num{font-family:var(--mono);text-align:right;width:70px}
+
+  .pill{display:inline-block;padding:1px 6px;border-radius:2px;font-size:11px;font-family:var(--mono);
+    border:1px solid #9a9280;color:var(--ink-soft)}
+  .pill.w{background:var(--white-sq);color:var(--ink)}
+  .pill.b{background:var(--black-sq);color:var(--ivory)}
+  .muted{color:var(--ink-soft)}
+  .small{font-size:12.5px}
+
+  .warnbox{background:var(--amber-bg);border:1px solid #E7BE8E;color:#9C4A17;padding:9px 11px;
+    border-radius:2px;margin:12px 0;font-size:13.5px}
+  .okbox{background:#EDF4EE;border:1px solid #B9D5C0;color:#2E5E3D;padding:9px 11px;
+    border-radius:2px;margin:12px 0;font-size:13.5px}
+  .empty{padding:28px 10px;text-align:center;color:var(--ink-soft);border:1px dashed var(--line);border-radius:3px}
+
+  .roundcard{border:1px solid var(--line);border-radius:3px;margin-bottom:18px;overflow:hidden}
+  .roundcard h3{margin:0;padding:10px 12px;background:var(--felt);color:var(--ivory);font-size:15px;
+    display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .roundcard h3 .r{font-weight:400;color:#CFE0D3;font-size:13px;font-family:var(--mono)}
+  .roundcard table{background:#fff}
+
+  .sched{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 4px}
+  .sched span{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:5px 13px;
+    font-size:13px;font-family:var(--mono)}
+  .sched span:first-child{background:var(--felt);color:#fff;border-color:var(--felt)}
+
+  .inline-edit{background:transparent;border:1px solid transparent;padding:4px 5px;width:100%}
+  .inline-edit:focus{background:var(--paper);border-color:var(--line)}
+  .byes{display:flex;gap:4px;flex-wrap:nowrap}
+  .byes .byechip{padding:3px 8px;font-size:12px;font-family:var(--mono);font-weight:600;
+    border:1px solid var(--line);border-radius:14px;color:var(--ink-soft);background:var(--paper)}
+  .byes .byechip:hover{background:#fff}
+  .byes .byechip.half{background:var(--amber-bg);border-color:var(--walnut);color:var(--walnut-dark)}
+  .byes .byechip.unplayed{background:var(--felt);border-color:var(--felt);color:var(--ivory)}
+  .byes .byechip:disabled{opacity:.45}
+
+  footer.foot{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;
+    color:var(--ink-soft);text-align:center}
+
+  @media print{
+    header.top, nav.tabs, .btns, .no-print{display:none!important}
+    body{background:#fff}
+    section.pane{display:block!important}
+    #pane-setup, #pane-players{display:none!important}
+    .card{border:none;padding:0}
+    .roundcard h3{background:#fff;color:#000;border-bottom:1px solid #999}
+    .roundcard h3 .r{color:#444}
+  }
+  @media (max-width:640px){
+    header.top{padding:16px 14px}
+    .card{padding:14px}
+    th,td{padding:6px}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header class="top">
+    <h1>Swiss Pairing Generator</h1>
+    <div class="sub">USCF Swiss-system pairings &middot; 4&ndash;5 Rd SS &middot; one event per month, round 1 on the first Thursday, final round on the last Thursday</div>
+    <div class="event-strip" id="eventStrip"></div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="setup" class="active">Event</button>
+    <button data-tab="players">Players</button>
+    <button data-tab="rounds">Pairings</button>
+    <button data-tab="standings">Standings</button>
+  </nav>
+
+  <!-- ============ EVENT ============ -->
+  <section class="pane active" id="pane-setup">
+    <div class="card">
+      <h2>Event details</h2>
+      <div class="row">
+        <div class="grow"><label for="evName">Event name</label>
+          <input id="evName" style="width:100%" placeholder="Monthly Swiss"></div>
+        <div><label for="evMonth">Month</label><select id="evMonth"></select></div>
+        <div><label for="evYear">Year</label><input id="evYear" type="number" min="2000" max="2100" style="width:100px"></div>
+        <div><label for="evRounds">Rounds</label><select id="evRounds">
+          <option value="4">4</option><option value="5">5</option></select></div>
+        <div><label for="evTC">Time control</label><input id="evTC" value="G/90; +30" style="width:140px"></div>
+      </div>
+      <label>round dates (1st round = 1st Thursday, last round = last Thursday)</label>
+      <div class="sched" id="schedule"></div>
+      <div id="setupMsg"></div>
+      <p class="muted small">Only 4- and 5-round events are offered, matching a one-month cycle. A month with
+        more Thursdays than rounds spaces the rounds evenly while keeping round 1 on the first Thursday and
+        the last round on the last Thursday.</p>
+    </div>
+
+    <div class="card">
+      <h2>Save / load this event</h2>
+      <p class="muted small">The event is kept in this browser automatically. Export a JSON file after each
+        round if you want a backup or need to continue on another device.</p>
+      <div class="btns">
+        <button class="sec" id="btnSave">Save event</button>
+        <button class="sec" id="btnExportJson">Export event (.json)</button>
+        <button class="sec" id="btnImportJson">Import event (.json)</button>
+        <button class="danger" id="btnReset">Start a new event</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PLAYERS ============ -->
+  <section class="pane" id="pane-players">
+    <div class="card">
+      <h2>Add players</h2>
+      <label for="paste">paste or type players below &mdash; only name and USCF rating are read; ranks, scores,
+        result codes (H---, W12, B---) and other columns are ignored</label>
+      <textarea id="paste" placeholder="Joshini Sudhakar, 1989
+Mrinalini Sudhakar, 1139"></textarea>
+      <div class="btns">
+        <button id="btnParse">Add these players</button>
+        <button class="sec" id="btnFile">Import file&hellip;</button>
+        <input type="file" id="fileIn" accept=".txt,.csv,.tsv,text/plain" hidden>
+        <button class="ghost" id="btnAddOne">Add blank player</button>
+        <button class="ghost" id="btnSortPlayers">Sort by rating</button>
+        <button class="danger" id="btnClearPlayers">Clear entire roster</button>
+      </div>
+      <div id="parseMsg"></div>
+    </div>
+
+    <div class="card">
+      <h2>Roster</h2>
+      <table id="playerTable">
+        <thead><tr>
+          <th style="width:38px">#</th><th style="min-width:170px">Name</th>
+          <th class="num" style="width:90px">Rating</th>
+          <th style="width:110px">US Chess ID</th><th style="width:130px">Status</th>
+          <th id="byeHead" style="width:250px">byes &mdash; click: &frac12; &rarr; unplayed</th>
+          <th class="num">Score</th><th style="width:80px"></th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+      <p class="muted small" id="playerCount"></p>
+    </div>
+  </section>
+
+  <!-- ============ PAIRINGS ============ -->
+  <section class="pane" id="pane-rounds">
+    <div class="card">
+      <h2>Pairings</h2>
+      <div class="btns" style="margin-top:0">
+        <button id="btnGenerate">Generate next round pairings</button>
+        <button class="sec" id="btnCopyPairings">Copy pairings</button>
+        <button class="sec" id="btnPrint">Print pairing sheet</button>
+        <button class="danger" id="btnUndoRound">Delete last round</button>
+      </div>
+      <div id="roundMsg"></div>
+      <div id="roundList"></div>
+    </div>
+  </section>
+
+  <!-- ============ STANDINGS ============ -->
+  <section class="pane" id="pane-standings">
+    <div class="card">
+      <h2>Standings</h2>
+      <table id="standTable">
+        <thead><tr>
+          <th style="width:40px">Pl</th><th>Name</th><th class="num">Rtg</th>
+          <th class="num">Score</th>
+          <th class="num" title="Solkoff: sum of opponents' scores">Solk</th>
+          <th class="num" title="Cumulative">Cum</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="btns"><button class="sec" id="btnCopyStand">Copy standings</button>
+        <button class="sec" id="btnCsvStand">Download standings CSV</button></div>
+      <p class="muted small">Solkoff sums all opponents' scores; Cumulative sums the player's own running
+        score after each round. Confirm the announced tiebreak order for USCF-rated events.</p>
+    </div>
+  </section>
+
+  <footer class="foot">Local tool &middot; no data leaves this device &middot; not affiliated with or endorsed by US Chess</footer>
+</div>
+
+<script>
+"use strict";
+
+const MONTHS = ["January","February","March","April","May","June","July",
+  "August","September","October","November","December"];
+const STORE_KEY = "swissPairingEvent.v1";
+
+let ev = newEvent();
+let nextPid = 1;
+
+function newEvent(){
+  const now = new Date();
+  return {
+    name: "", year: now.getFullYear(), month: now.getMonth(),
+    rounds: 4, tc: "G/90; +30", players: [], roundData: []
+  };
+}
+
+/* ---------------- Schedule: Thursdays of the month ---------------- */
+function thursdaysOf(year, month){
+  const out = [], d = new Date(year, month, 1);
+  while (d.getMonth() === month){
+    if (d.getDay() === 4) out.push(new Date(d));
+    d.setDate(d.getDate() + 1);
+  }
+  return out;
+}
+function roundDates(){
+  const th = thursdaysOf(ev.year, ev.month), R = ev.rounds;
+  if (!th.length) return [];
+  if (R === 1) return [th[0]];
+  const out = [];
+  for (let i = 0; i < R; i++){
+    const idx = Math.round(i * (th.length - 1) / (R - 1));
+    out.push(th[Math.min(idx, th.length - 1)]);
+  }
+  return out;
+}
+function fmtDate(d){
+  return d ? d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"}) : "";
+}
+function renderSchedule(){
+  const th = thursdaysOf(ev.year, ev.month);
+  const rd = roundDates();
+  document.getElementById("schedule").innerHTML =
+    `<span>${th.length} Thursdays in ${MONTHS[ev.month]} ${ev.year}</span>` +
+    rd.map((d,i)=>`<span>Rd ${i+1}: ${fmtDate(d)}</span>`).join("");
+  const sel = document.getElementById("evRounds");
+  Array.from(sel.options).forEach(o => { o.disabled = +o.value > th.length; });
+  sel.value = ev.rounds;
+  document.getElementById("eventStrip").innerHTML = [
+    `<span><b>event</b> ${esc(ev.name || "untitled")}</span>`,
+    `<span><b>when</b> ${MONTHS[ev.month]} ${ev.year}</span>`,
+    `<span><b>format</b> ${ev.rounds} Rd SS</span>`,
+    `<span><b>tc</b> ${esc(ev.tc)}</span>`,
+    `<span><b>players</b> ${activePlayers().length}</span>`,
+    `<span><b>rounds paired</b> ${ev.roundData.length}/${ev.rounds}</span>`
+  ].join("");
+}
+// Every round is played on a Thursday, so the month's Thursday count is the cap.
+function maxRounds(){ return thursdaysOf(ev.year, ev.month).length; }
+
+/* ---------------- Player list parsing ---------------- */
+const RESULT_CODE = /^[WLDBHUXFZ](\d{1,3}|-{1,4})$/i;   // W12, L3, H---, B---, U---
+const DECIMAL     = /^\d+\.\d+$/;                        // 0.0, 2.5
+const USCFID      = /^\d{8,}$/;
+const UNRATED     = /^(unr|unrated|new|nnnn|prov|\-{2,})$/i;
+
+function parseLine(raw){
+  let line = raw.replace(/\t/g, " ").trim();
+  if (!line) return null;
+  if (/^[-=_*#]{3,}$/.test(line)) return null;                       // separator rules
+  if (/^(pair|no\.?|num|rank|#)?\s*(player|name)\b/i.test(line) &&
+      /rat(ing)?|uscf|score|pts/i.test(line)) return null;           // header row
+
+  let name = "", rating = null, uscf = null;
+
+  if (line.includes(",")) {
+    // CSV-ish:  Name, Rating[, ID]  or  Last, First, Rating
+    const parts = line.split(",").map(s => s.trim()).filter(s => s !== "");
+    const words = [], nums = [];
+    parts.forEach(p => {
+      const t = p.replace(/\s+/g," ");
+      if (/^\d+$/.test(t)) nums.push(t);
+      else if (DECIMAL.test(t) || RESULT_CODE.test(t)) { /* ignore */ }
+      else if (/[A-Za-z]/.test(t)) words.push(t);
+    });
+    if (words.length) {
+      name = words.slice(0, 2).join(", ").replace(/,\s*$/,"");
+      if (words.length === 1) name = words[0];
+      nums.forEach(n => {
+        if (USCFID.test(n)) { if (uscf === null) uscf = n; }
+        else if (rating === null && +n <= 3200 && n.length <= 4) rating = +n;
+      });
+      // strip a leading rank number that got glued to the name ("1 Eric Gahlon")
+      const m = name.match(/^(\d{1,3})[.)]?\s+(.*)$/);
+      if (m) name = m[2];
+      if (name) return { name: clean(name), rating: rating === null ? 0 : rating, uscf };
+    }
+  }
+
+  // Whitespace columns:  [rank] Name... Rating [extra columns]
+  let toks = line.split(/\s+/);
+  if (/^\d{1,3}[.)]?$/.test(toks[0]) && toks.length > 1) toks = toks.slice(1); // drop rank
+  const nameToks = [];
+  let i = 0, unrated = false;
+  for (; i < toks.length; i++){
+    const t = toks[i];
+    if (/^\d{1,4}$/.test(t) && +t <= 3200 && !USCFID.test(t)) { rating = +t; i++; break; }
+    if (UNRATED.test(t) && nameToks.length) { unrated = true; i++; break; }
+    if (USCFID.test(t)) { uscf = t; continue; }
+    if (DECIMAL.test(t) || RESULT_CODE.test(t)) continue;
+    nameToks.push(t);
+  }
+  for (; i < toks.length; i++) if (USCFID.test(toks[i]) && !uscf) uscf = toks[i];
+
+  name = clean(nameToks.join(" "));
+  if (!name || !/[A-Za-z]/.test(name)) return null;
+  return { name, rating: (rating === null || unrated) ? 0 : rating, uscf };
+}
+function clean(s){
+  return s.replace(/\s+/g," ")
+          .replace(/^[\s,;:\-|]+|[\s,;:\-|]+$/g,"")
+          .trim();
+}
+function parsePlayers(text){
+  const found = [], skipped = [];
+  text.split(/\r?\n/).forEach(l => {
+    if (!l.trim()) return;
+    const p = parseLine(l);
+    if (p) found.push(p); else skipped.push(l.trim());
+  });
+  return { found, skipped };
+}
+
+/* ---------------- Player model ---------------- */
+function addPlayer(p){
+  ev.players.push({
+    id: nextPid++, name: p.name, rating: p.rating || 0,
+    uscf: p.uscf || "", status: "active", byeRequests: {}
+  });
+}
+function activePlayers(){ return ev.players.filter(p => p.status === "active"); }
+function byId(id){ return ev.players.find(p => p.id === id); }
+
+/* ---------------- Scores / colors / history ---------------- */
+function resultPoints(res){
+  switch(res){
+    case "W":  return [1, 0];
+    case "B":  return [0, 1];
+    case "D":  return [0.5, 0.5];
+    case "WF": return [1, 0];
+    case "BF": return [0, 1];
+    case "DF": return [0, 0];
+    default:   return [0, 0];
+  }
+}
+function computeStats(){
+  const st = {};
+  ev.players.forEach(p => st[p.id] = {
+    score:0, opps:[], colors:[], byes:0, perRound:{}, cum:0, run:0
+  });
+  ev.roundData.forEach(rd => {
+    rd.boards.forEach(b => {
+      const [wp, bp] = resultPoints(b.result);
+      const W = st[b.w], B = st[b.b];
+      if (W){ W.opps.push(b.b); W.colors.push("W");
+        if (b.result){ W.score += wp; W.perRound[rd.no] = { pts:wp, txt:(wp===1?"W":wp===0.5?"D":"L")+"/w", color:"W" }; }
+        else W.perRound[rd.no] = { pts:0, txt:"·w", color:"W", pending:true }; }
+      if (B){ B.opps.push(b.w); B.colors.push("B");
+        if (b.result){ B.score += bp; B.perRound[rd.no] = { pts:bp, txt:(bp===1?"W":bp===0.5?"D":"L")+"/b", color:"B" }; }
+        else B.perRound[rd.no] = { pts:0, txt:"·b", color:"B", pending:true }; }
+    });
+    (rd.byes||[]).forEach(by => {
+      const S = st[by.id]; if (!S) return;
+      const pts = by.type === "full" ? 1 : by.type === "half" ? 0.5 : 0;
+      S.score += pts;
+      if (by.type === "full") S.byes++;
+      S.perRound[rd.no] = { pts, txt: by.type==="full" ? "B---" : by.type==="half" ? "H---" : "U---", color:"" };
+    });
+  });
+  // cumulative tiebreak
+  ev.players.forEach(p => {
+    let run = 0;
+    ev.roundData.forEach(rd => { const r = st[p.id].perRound[rd.no]; run += r ? r.pts : 0; st[p.id].cum += run; });
+  });
+  ev.players.forEach(p => {
+    st[p.id].solkoff = st[p.id].opps.reduce((s,oid) => s + (st[oid] ? st[oid].score : 0), 0);
+    st[p.id].balance = st[p.id].colors.reduce((s,c) => s + (c === "W" ? 1 : -1), 0);
+    st[p.id].last = st[p.id].colors.length ? st[p.id].colors[st[p.id].colors.length-1] : "";
+    st[p.id].last2 = st[p.id].colors.slice(-2).join("");
+  });
+  return st;
+}
+
+/* ---------------- Pairing engine ---------------- */
+// Strength of a player's due colour: >0 wants white, <0 wants black.
+function colorNeed(s){
+  if (!s.colors.length) return 0;
+  if (s.last2 === "WW") return -3;
+  if (s.last2 === "BB") return 3;
+  return -s.balance + (s.last === "B" ? 0.5 : -0.5);
+}
+function solveGroup(pool, stats, allowRematch){
+  let nodes = 0; const MAX = 150000;
+  function rec(list){
+    if (!list.length) return [];
+    if (++nodes > MAX) return null;
+    const p = list[0], rest = list.slice(1);
+    const ideal = Math.floor(list.length / 2) - 1;
+    const np = colorNeed(stats[p.id]);
+    const order = rest.map((q,i) => {
+      const nq = colorNeed(stats[q.id]);
+      // penalise pairs where both players are due the same colour
+      const same = (np > 0 && nq > 0) || (np < 0 && nq < 0);
+      const strength = Math.min(Math.abs(np), Math.abs(nq));
+      const clash = !same ? 0 : strength >= 3 ? 8 : strength >= 2 ? 4 : 1;
+      return { q, i, cost: Math.abs(i - ideal) * 2 + clash };
+    }).sort((a,b) => a.cost - b.cost || a.i - b.i);
+    for (const c of order){
+      if (!allowRematch && stats[p.id].opps.includes(c.q.id)) continue;
+      const sub = rest.filter((_,i) => i !== c.i);
+      const r = rec(sub);
+      if (r) return [[p, c.q]].concat(r);
+    }
+    return null;
+  }
+  return rec(pool);
+}
+
+// Walks the score groups top-down, trying alternative down-floaters (and, when a
+// group cannot be paired, floating extra players) before giving up.
+function pairScoreGroups(groups, stats, allowRematch){
+  let budget = 4000;
+  function step(gi, carry){
+    if (gi >= groups.length) return carry.length ? null : [];
+    if (budget-- < 0) return null;
+    const cur = carry.concat(groups[gi].list);
+    const isLast = gi === groups.length - 1;
+    const parity = cur.length % 2;
+    const maxDown = isLast ? 0 : cur.length;
+    for (let d = parity; d <= maxDown; d += 2){
+      const upto = Math.min(3, cur.length - d);           // alternative float choices
+      for (let off = 0; off <= upto; off++){
+        const start = cur.length - d - off;
+        const floaters = cur.slice(start, start + d);
+        const pool = cur.slice(0, start).concat(cur.slice(start + d));
+        if (pool.length % 2) continue;
+        const res = pool.length ? solveGroup(pool, stats, allowRematch) : [];
+        if (!res) continue;
+        const rest = step(gi + 1, floaters);
+        if (rest) return res.concat(rest);
+        if (d === 0) break;                                // no float choice to vary
+      }
+    }
+    return null;
+  }
+  return step(0, []);
+}
+
+function generateRound(){
+  const roundNo = ev.roundData.length + 1;
+  if (roundNo > ev.rounds) return { error:`All ${ev.rounds} rounds are already paired.` };
+  const stats = computeStats();
+
+  const requested = [], pool = [];
+  activePlayers().forEach(p => {
+    const req = (p.byeRequests || {})[roundNo];
+    if (req === "half" || req === "unplayed") requested.push({ id:p.id, type:req });
+    else pool.push(p);
+  });
+  if (pool.length < 2) return { error:"Need at least 2 available players to pair a round." };
+
+  const sortKey = (a,b) => (stats[b.id].score - stats[a.id].score) ||
+                           (b.rating - a.rating) ||
+                           a.name.localeCompare(b.name);
+  pool.sort(sortKey);
+
+  const byes = requested.slice();
+
+  // full-point bye: lowest score / lowest rated player who has not had one
+  if (pool.length % 2 === 1){
+    let cand = null;
+    for (let i = pool.length - 1; i >= 0; i--){ if (stats[pool[i].id].byes === 0){ cand = pool[i]; break; } }
+    if (!cand) cand = pool[pool.length - 1];
+    pool.splice(pool.indexOf(cand), 1);
+    byes.push({ id: cand.id, type: "full" });
+  }
+
+  // score groups, top down, with down-floaters
+  const groups = [];
+  pool.forEach(p => {
+    const s = stats[p.id].score;
+    if (groups.length && groups[groups.length-1].score === s) groups[groups.length-1].list.push(p);
+    else groups.push({ score:s, list:[p] });
+  });
+
+  let relaxed = false;
+  let pairs = pairScoreGroups(groups, stats, false);
+  if (!pairs){ pairs = pairScoreGroups(groups, stats, true); relaxed = true; }
+  if (!pairs) return { error:"Could not build a pairing for this round." };
+
+  // colors
+  const boards = pairs.map(pair => {
+    const [x, y] = pair;
+    const [w, b] = chooseColors(x, y, stats, roundNo);
+    return { w: w.id, b: b.id, result: "" };
+  });
+  // board order: highest combined score, then rating
+  boards.sort((A,B) => {
+    const sA = stats[A.w].score + stats[A.b].score, sB = stats[B.w].score + stats[B.b].score;
+    const rA = Math.max(byId(A.w).rating, byId(A.b).rating), rB = Math.max(byId(B.w).rating, byId(B.b).rating);
+    return sB - sA || rB - rA;
+  });
+  // USCF round 1: colours alternate down the boards for the upper half
+  if (roundNo === 1)
+    boards.forEach((b, i) => { if (i % 2) { const t = b.w; b.w = b.b; b.b = t; } });
+
+  const dates = roundDates();
+  ev.roundData.push({
+    no: roundNo,
+    date: dates[roundNo-1] ? dates[roundNo-1].toISOString().slice(0,10) : "",
+    boards, byes
+  });
+  return { ok:true, relaxed };
+}
+
+function chooseColors(x, y, stats, roundNo){
+  const nx = colorNeed(stats[x.id]), ny = colorNeed(stats[y.id]);
+  if (nx > ny) return [x, y];
+  if (ny > nx) return [y, x];
+  return (roundNo % 2 === 1) === (x.rating >= y.rating) ? [x, y] : [y, x];
+}
+
+/* ---------------- Rendering ---------------- */
+function render(){
+  renderPlayers();
+  renderSchedule();
+  renderRounds();
+  renderStandings();
+}
+
+function renderPlayers(){
+  const st = computeStats();
+  const paired = ev.roundData.length;
+  const tb = document.querySelector("#playerTable tbody");
+  if (!ev.players.length){
+    tb.innerHTML = `<tr><td colspan="8"><div class="empty">No players yet. Paste a list above and
+      choose &ldquo;Add these players&rdquo;.</div></td></tr>`;
+    document.getElementById("playerCount").textContent = "";
+    return;
+  }
+  tb.innerHTML = ev.players.map((p, i) => `
+    <tr data-id="${p.id}">
+      <td class="muted">${i+1}</td>
+      <td><input class="inline-edit" data-f="name" value="${esc(p.name)}"></td>
+      <td class="num"><input class="inline-edit" data-f="rating" type="number" min="0" max="3200"
+            style="text-align:right" value="${p.rating || ""}" placeholder="unr"></td>
+      <td><input class="inline-edit" data-f="uscf" value="${esc(p.uscf)}" placeholder="&mdash;"></td>
+      <td><select data-f="status">
+            <option value="active"${p.status==="active"?" selected":""}>Active</option>
+            <option value="withdrawn"${p.status==="withdrawn"?" selected":""}>Withdrawn</option>
+          </select></td>
+      <td><div class="byes">${
+        Array.from({length: ev.rounds}, (_, k) => k + 1).map(r => {
+          const type = (p.byeRequests || {})[r] || "", locked = r <= paired;
+          const face = type === "half" ? `R${r} \u00BD` : type === "unplayed" ? `R${r} U` : `R${r}`;
+          const title = locked ? "Round already paired"
+            : type === "half" ? `\u00BD-point bye in round ${r} \u2014 click for unplayed`
+            : type === "unplayed" ? `Unplayed (0 points) in round ${r} \u2014 click to clear`
+            : `Click for a \u00BD-point bye in round ${r}`;
+          return `<button type="button" class="byechip ${type}" data-act="bye" data-round="${r}"
+            title="${title}"${locked?" disabled":""}>${face}</button>`;
+        }).join("")}</div></td>
+      <td class="num">${fmtScore(st[p.id].score)}</td>
+      <td><button class="danger" data-act="del">Remove</button></td>
+    </tr>`).join("");
+  document.getElementById("playerCount").textContent =
+    `${ev.players.length} players (${activePlayers().length} active). ` +
+    `Rating 0 / blank = unrated. Click R1\u2013R${ev.rounds} to cycle a round through ` +
+    `\u00BD-point bye (\u00BD, scores 0.5) \u2192 unplayed (U, scores 0) \u2192 playing; either way the player is left ` +
+    `out of that round's pairings. Odd active count \u2192 lowest-scoring eligible player receives a full-point bye.`;
+}
+
+function renderRounds(){
+  const st = computeStats();
+  const host = document.getElementById("roundList");
+  if (!ev.roundData.length){
+    host.innerHTML = `<div class="empty">No rounds paired yet. Add players, then use
+      &ldquo;Generate next round pairings&rdquo;.</div>`;
+    return;
+  }
+  const dates = roundDates();
+  host.innerHTML = ev.roundData.map(rd => `
+    <div class="roundcard">
+      <h3><span>Round ${rd.no} of ${ev.rounds}</span>
+        <span class="r">${fmtDate(dates[rd.no-1])} &middot; ${esc(ev.tc)}</span></h3>
+      <table>
+        <thead><tr><th style="width:55px">Bd</th><th>White</th>
+          <th style="width:190px" class="noprint">Result</th><th>Black</th></tr></thead>
+        <tbody>
+        ${rd.boards.map((b,i) => {
+          const W = byId(b.w), B = byId(b.b);
+          return `<tr data-r="${rd.no}" data-b="${i}">
+            <td class="muted">${i+1}</td>
+            <td><span class="pill w">W</span> ${esc(W.name)}
+                <span class="muted small">(${W.rating||"unr"}, ${fmtScore(st[W.id].score)})</span></td>
+            <td class="noprint"><select data-act="res" style="width:100%">
+              <option value=""${b.result===""?" selected":""}>&mdash; not played &mdash;</option>
+              <option value="W"${b.result==="W"?" selected":""}>White wins 1-0</option>
+              <option value="B"${b.result==="B"?" selected":""}>Black wins 0-1</option>
+              <option value="D"${b.result==="D"?" selected":""}>Draw &frac12;-&frac12;</option>
+              <option value="WF"${b.result==="WF"?" selected":""}>White wins by forfeit</option>
+              <option value="BF"${b.result==="BF"?" selected":""}>Black wins by forfeit</option>
+              <option value="DF"${b.result==="DF"?" selected":""}>Double forfeit 0-0</option>
+            </select></td>
+            <td><span class="pill b">B</span> ${esc(B.name)}
+                <span class="muted small">(${B.rating||"unr"}, ${fmtScore(st[B.id].score)})</span></td>
+          </tr>`;
+        }).join("")}
+        ${(rd.byes||[]).map(by => {
+          const P = byId(by.id); if (!P) return "";
+          const label = by.type === "full" ? "full-point bye (1.0)"
+            : by.type === "half" ? "half-point bye (0.5)" : "unplayed (0.0)";
+          return `<tr><td class="muted">&mdash;</td><td colspan="3">${esc(P.name)}
+            <span class="muted small">(${P.rating||"unr"})</span> &mdash; ${label}</td></tr>`;
+        }).join("")}
+        </tbody>
+      </table>
+    </div>`).join("");
+}
+
+function renderStandings(){
+  const st = computeStats();
+  const rows = ev.players.slice().sort((a,b) =>
+      st[b.id].score - st[a.id].score ||
+      st[b.id].solkoff - st[a.id].solkoff ||
+      st[b.id].cum - st[a.id].cum ||
+      b.rating - a.rating);
+  const head = document.querySelector("#standTable thead tr");
+  head.innerHTML = `<th style="width:40px">Pl</th><th>Name</th><th class="num">Rtg</th>
+    <th class="num">Score</th>` +
+    ev.roundData.map(rd => `<th class="num">R${rd.no}</th>`).join("") +
+    `<th class="num" title="Solkoff">Solk</th><th class="num" title="Cumulative">Cum</th>`;
+  document.querySelector("#standTable tbody").innerHTML = rows.map((p,i) => `
+    <tr><td class="muted">${i+1}</td>
+      <td>${esc(p.name)}${p.status!=="active"?' <span class="pill">withdrawn</span>':""}</td>
+      <td class="num">${p.rating||"unr"}</td>
+      <td class="num"><b>${fmtScore(st[p.id].score)}</b></td>
+      ${ev.roundData.map(rd => {
+        const r = st[p.id].perRound[rd.no];
+        return `<td class="num small">${r ? esc(r.txt) : "&mdash;"}</td>`;
+      }).join("")}
+      <td class="num muted">${fmtScore(st[p.id].solkoff)}</td>
+      <td class="num muted">${fmtScore(st[p.id].cum)}</td>
+    </tr>`).join("");
+}
+
+function fmtScore(n){
+  const v = Math.round(n * 2) / 2;
+  return Number.isInteger(v) ? String(v) : (Math.floor(v) || "") + "\u00BD";
+}
+function esc(s){
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c =>
+    ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" })[c]);
+}
+function msg(hostId, text, kind){
+  document.getElementById(hostId).innerHTML =
+    text ? `<div class="${kind === "warn" ? "warnbox" : "okbox"}">${esc(text)}</div>` : "";
+}
+
+/* ---------------- Text exports ---------------- */
+function pairingsText(){
+  const st = computeStats(), dates = roundDates();
+  let out = `${ev.name || "Monthly Swiss"} — ${MONTHS[ev.month]} ${ev.year} — ${ev.rounds} Rd SS, ${ev.tc}\n`;
+  ev.roundData.forEach(rd => {
+    out += `\nRound ${rd.no}${dates[rd.no-1] ? " — " + fmtDate(dates[rd.no-1]) : ""}\n`;
+    out += "Bd  White                          Score   Black                          Score\n";
+    rd.boards.forEach((b,i) => {
+      const W = byId(b.w), B = byId(b.b);
+      out += String(i+1).padEnd(4) +
+        `${W.name} (${W.rating||"unr"})`.padEnd(31) + fmtScore(st[W.id].score).padEnd(8) +
+        `${B.name} (${B.rating||"unr"})`.padEnd(31) + fmtScore(st[B.id].score) + "\n";
+    });
+    (rd.byes||[]).forEach(by => {
+      const P = byId(by.id); if (!P) return;
+      const label = by.type === "full" ? "full-point bye" : by.type === "half" ? "half-point bye" : "unplayed";
+      out += `--  ${P.name} \u2014 ${label}\n`;
+    });
+  });
+  return out;
+}
+function standingsText(csv){
+  const st = computeStats();
+  const rows = ev.players.slice().sort((a,b) =>
+    st[b.id].score - st[a.id].score || st[b.id].solkoff - st[a.id].solkoff ||
+    st[b.id].cum - st[a.id].cum || b.rating - a.rating);
+  const head = ["Place","Name","Rating","Score", ...ev.roundData.map(r => "R"+r.no), "Solkoff","Cumulative"];
+  const body = rows.map((p,i) => [i+1, p.name, p.rating || "unr", fmtScore(st[p.id].score),
+    ...ev.roundData.map(rd => { const r = st[p.id].perRound[rd.no]; return r ? r.txt : ""; }),
+    fmtScore(st[p.id].solkoff), fmtScore(st[p.id].cum)]);
+  if (csv) return [head, ...body].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
+  return [head, ...body].map(r => r.join("\t")).join("\n");
+}
+function copyText(t){
+  navigator.clipboard.writeText(t).then(
+    () => msg("roundMsg", "Copied to clipboard.", "ok"),
+    () => msg("roundMsg", "Clipboard blocked by the browser — select the text manually.", "warn"));
+}
+function download(name, text, type){
+  const b = new Blob([text], { type: type || "text/plain" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(b); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/* ---------------- Persistence ---------------- */
+function adopt(o){
+  ev = Object.assign(newEvent(), o);
+  ev.players.forEach(p => {
+    if (!p.byeRequests || typeof p.byeRequests !== "object"){
+      p.byeRequests = {};
+      (Array.isArray(p.byeRounds) ? p.byeRounds : p.byeRequest ? [p.byeRequest] : [])
+        .forEach(r => { p.byeRequests[r] = "half"; });
+    }
+    delete p.byeRounds; delete p.byeRequest;
+  });
+  nextPid = ev.players.reduce((m,p) => Math.max(m, p.id), 0) + 1;
+}
+function save(){
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(ev)); } catch(e){}
+}
+function load(){
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return false;
+    const o = JSON.parse(raw);
+    if (!o || !Array.isArray(o.players)) return false;
+    adopt(o);
+    return true;
+  } catch(e){ return false; }
+}
+
+/* ---------------- Wiring ---------------- */
+function initForm(){
+  const ms = document.getElementById("evMonth");
+  ms.innerHTML = MONTHS.map((m,i) => `<option value="${i}">${m}</option>`).join("");
+  ms.value = ev.month;
+  ev.rounds = Math.min(ev.rounds, maxRounds());
+  document.getElementById("evYear").value = ev.year;
+  document.getElementById("evRounds").value = ev.rounds;
+  document.getElementById("evTC").value = ev.tc;
+  document.getElementById("evName").value = ev.name;
+}
+
+["evName","evMonth","evYear","evRounds","evTC"].forEach(id => {
+  document.getElementById(id).addEventListener("change", () => {
+    ev.name = document.getElementById("evName").value;
+    ev.month = +document.getElementById("evMonth").value;
+    ev.year = +document.getElementById("evYear").value || new Date().getFullYear();
+    ev.rounds = +document.getElementById("evRounds").value;
+    ev.tc = document.getElementById("evTC").value;
+    const cap = maxRounds();
+    if (ev.rounds > cap){
+      msg("setupMsg", `Only ${cap} rounds are allowed \u2014 ${MONTHS[ev.month]} ${ev.year} has ` +
+        `${cap} Thursdays (${thursdaysOf(ev.year, ev.month).map(fmtDate).join(", ")}). Rounds set to ${cap}.`, "warn");
+      ev.rounds = cap;
+    } else {
+      msg("setupMsg", "", "ok");
+    }
+    if (ev.roundData.length > ev.rounds) ev.roundData = ev.roundData.slice(0, ev.rounds);
+    save(); render();
+  });
+});
+
+document.getElementById("btnParse").addEventListener("click", () => {
+  const text = document.getElementById("paste").value;
+  if (!text.trim()){ msg("parseMsg", "Paste a list first.", "warn"); return; }
+  const { found, skipped } = parsePlayers(text);
+  const existing = new Set(ev.players.map(p => p.name.toLowerCase()));
+  let added = 0, dupes = 0;
+  found.forEach(p => {
+    if (existing.has(p.name.toLowerCase())){ dupes++; return; }
+    existing.add(p.name.toLowerCase()); addPlayer(p); added++;
+  });
+  let m = `Added ${added} player${added===1?"":"s"}.`;
+  if (dupes) m += ` Skipped ${dupes} duplicate name${dupes===1?"":"s"}.`;
+  if (skipped.length) m += ` ${skipped.length} line(s) could not be read: ${skipped.slice(0,3).join(" | ")}${skipped.length>3?" …":""}`;
+  msg("parseMsg", m, skipped.length || dupes ? "warn" : "ok");
+  document.getElementById("paste").value = "";
+  save(); render();
+});
+
+document.getElementById("btnFile").addEventListener("click", () => document.getElementById("fileIn").click());
+document.getElementById("fileIn").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => { document.getElementById("paste").value = r.result; document.getElementById("btnParse").click(); };
+  r.readAsText(f);
+  e.target.value = "";
+});
+
+document.getElementById("btnAddOne").addEventListener("click", () => {
+  addPlayer({ name:"New Player", rating:0 }); save(); render();
+});
+document.getElementById("btnSortPlayers").addEventListener("click", () => {
+  ev.players.sort((a,b) => b.rating - a.rating || a.name.localeCompare(b.name)); save(); render();
+});
+document.getElementById("btnClearPlayers").addEventListener("click", () => {
+  if (!confirm("Remove all players and all pairings?")) return;
+  ev.players = []; ev.roundData = []; save(); render();
+});
+
+document.querySelector("#playerTable tbody").addEventListener("input", e => {
+  const tr = e.target.closest("tr"); if (!tr) return;
+  const p = byId(+tr.dataset.id), f = e.target.dataset.f; if (!p || !f) return;
+  if (f === "rating") p.rating = Math.max(0, Math.min(3200, +e.target.value || 0));
+  else p[f] = e.target.value;
+  save(); renderStandings();
+});
+document.querySelector("#playerTable tbody").addEventListener("change", e => {
+  if (e.target.dataset.f === "status"){
+    const tr = e.target.closest("tr"); byId(+tr.dataset.id).status = e.target.value; save(); render();
+  }
+});
+document.querySelector("#playerTable tbody").addEventListener("click", e => {
+  const tr = e.target.closest("tr"); if (!tr) return;
+  if (e.target.dataset.act === "bye"){
+    const p = byId(+tr.dataset.id), r = +e.target.dataset.round;
+    p.byeRequests = p.byeRequests || {};
+    const next = { "": "half", "half": "unplayed", "unplayed": "" }[p.byeRequests[r] || ""];
+    if (next) p.byeRequests[r] = next; else delete p.byeRequests[r];
+    save(); render();
+    return;
+  }
+  if (e.target.dataset.act !== "del") return;
+  const id = +tr.dataset.id;
+  const used = ev.roundData.some(rd => rd.boards.some(b => b.w === id || b.b === id));
+  if (used && !confirm("This player already has pairings. Remove anyway?")) return;
+  ev.players = ev.players.filter(p => p.id !== id);
+  ev.roundData.forEach(rd => {
+    rd.boards = rd.boards.filter(b => b.w !== id && b.b !== id);
+    rd.byes = (rd.byes||[]).filter(b => b.id !== id);
+  });
+  save(); render();
+});
+
+document.getElementById("roundList").addEventListener("change", e => {
+  if (e.target.dataset.act !== "res") return;
+  const tr = e.target.closest("tr");
+  const rd = ev.roundData.find(r => r.no === +tr.dataset.r);
+  rd.boards[+tr.dataset.b].result = e.target.value;
+  save(); render();
+});
+
+document.getElementById("btnGenerate").addEventListener("click", () => {
+  const last = ev.roundData[ev.roundData.length - 1];
+  if (last && last.boards.some(b => !b.result) &&
+      !confirm(`Round ${last.no} still has unreported games (counted as 0-0). Pair the next round anyway?`)) return;
+  const r = generateRound();
+  if (r.error){ msg("roundMsg", r.error, "warn"); return; }
+  msg("roundMsg", `Round ${ev.roundData.length} paired.` +
+    (r.relaxed ? " Note: a rematch was unavoidable in one score group — review before posting." : ""),
+    r.relaxed ? "warn" : "ok");
+  save(); render(); showTab("rounds");
+});
+document.getElementById("btnUndoRound").addEventListener("click", () => {
+  if (!ev.roundData.length) return;
+  if (!confirm(`Delete round ${ev.roundData.length} and its results?`)) return;
+  ev.roundData.pop(); save(); render();
+});
+document.getElementById("btnCopyPairings").addEventListener("click", () => copyText(pairingsText()));
+document.getElementById("btnPrint").addEventListener("click", () => window.print());
+document.getElementById("btnCopyStand").addEventListener("click", () => copyText(standingsText(false)));
+document.getElementById("btnCsvStand").addEventListener("click", () =>
+  download(`standings-${MONTHS[ev.month]}-${ev.year}.csv`, standingsText(true), "text/csv"));
+
+document.getElementById("btnSave").addEventListener("click", () => { save(); msg("parseMsg", "Event saved in this browser.", "ok"); });
+document.getElementById("btnExportJson").addEventListener("click", () =>
+  download(`swiss-${MONTHS[ev.month]}-${ev.year}.json`, JSON.stringify(ev, null, 2), "application/json"));
+document.getElementById("btnImportJson").addEventListener("click", () => {
+  const inp = document.createElement("input");
+  inp.type = "file"; inp.accept = ".json,application/json";
+  inp.onchange = () => {
+    const f = inp.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const o = JSON.parse(r.result);
+        if (!o || !Array.isArray(o.players)) throw new Error("bad file");
+        adopt(o);
+        save(); initForm(); render();
+        msg("parseMsg", "Event imported.", "ok");
+      } catch(err){ msg("parseMsg", "That file is not a valid event export.", "warn"); }
+    };
+    r.readAsText(f);
+  };
+  inp.click();
+});
+document.getElementById("btnReset").addEventListener("click", () => {
+  if (!confirm("Start a new empty event? The current one will be cleared.")) return;
+  const now = new Date();
+  ev = newEvent();
+  ev.month = now.getMonth(); ev.year = now.getFullYear();
+  ev.rounds = thursdaysOf(ev.year, ev.month).length >= 5 ? 5 : 4;
+  nextPid = 1; save(); initForm(); render();
+  msg("parseMsg", "", "ok"); msg("roundMsg", "", "ok");
+});
+
+/* ---------------- Boot ---------------- */
+document.getElementById("tabs").addEventListener("click", e => {
+  const btn = e.target.closest("button[data-tab]"); if (!btn) return;
+  showTab(btn.dataset.tab);
+});
+function showTab(name){
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
+  document.querySelectorAll("section.pane").forEach(p => p.classList.toggle("active", p.id === "pane-" + name));
+  window.scrollTo({ top: 0 });
+}
+
+(function boot(){
+  if (!load()){
+    const now = new Date();
+    ev.month = now.getMonth(); ev.year = now.getFullYear();
+    ev.rounds = thursdaysOf(ev.year, ev.month).length >= 5 ? 5 : 4;
+  }
+  initForm();
+  render();
+})();
+</script>
+</body>
+</html>
