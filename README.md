@@ -19,8 +19,8 @@ your browser; the event is stored in `localStorage` and nothing is uploaded anyw
   ```text
   Joshini Sudhakar, 1989
   Mrinalini Sudhakar, 1139
-  1  Eric Gahlon        1939   H---   0.0
-  Kevin Landman 1790
+  1  Riya Dadla        1189   H---   0.0
+  Deeksha Sakamuri 980
   ```
 
 - **Pairing engine** — score groups paired top-half vs bottom-half with backtracking, so
