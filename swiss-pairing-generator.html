@@ -143,7 +143,7 @@
 <div id="app">
 
   <header class="top">
-    <h1>Swiss Pairing Generator</h1>
+    <h1>JOMI's Swiss Pairing Generator</h1>
     <div class="sub">USCF Swiss-system pairings &middot; 4&ndash;5 Rd SS &middot; one event per month, round 1 on the first Thursday, final round on the last Thursday</div>
     <div class="event-strip" id="eventStrip"></div>
   </header>
@@ -178,10 +178,10 @@
 
     <div class="card">
       <h2>Save / load this event</h2>
-      <p class="muted small">The event is kept in this browser automatically. Export a JSON file after each
-        round if you want a backup or need to continue on another device.</p>
+      <p class="muted small">This event exists only while this page is open. Export a JSON file after each
+        round to keep a backup or continue later on another device.</p>
       <div class="btns">
-        <button class="sec" id="btnSave">Save event</button>
+        <button class="sec" id="btnSave">Save reminder</button>
         <button class="sec" id="btnExportJson">Export event (.json)</button>
         <button class="sec" id="btnImportJson">Import event (.json)</button>
         <button class="danger" id="btnReset">Start a new event</button>
@@ -192,13 +192,29 @@
   <!-- ============ PLAYERS ============ -->
   <section class="pane" id="pane-players">
     <div class="card">
-      <h2>Add players</h2>
-      <label for="paste">paste or type players below &mdash; only name and USCF rating are read; ranks, scores,
-        result codes (H---, W12, B---) and other columns are ignored</label>
+      <h2>Resume from a completed round <span class="muted small">use when starting a new browser session</span></h2>
+      <label for="roundOnePairingPaste">1. paste the completed pairing sheet with White, Black, and results; then paste its standings below</label>
+      <textarea id="roundOnePairingPaste" rows="5" style="min-height:105px" placeholder="17 1   Mrinalini Sudhakar (0.0)  0   Shreya Binu (0.0)
+    18 0   Shatvath Vijayaraj (0.0) 1   Deeksha Sakamuri (0.0)
+
+       ½   Riya Dadla (0.0)      BYE
+       ½   Risa Dadla (0.0)      BYE"></textarea>
+          <div class="row" style="margin:10px 0 0">
+            <div><label for="resumeRound">completed round</label><input id="resumeRound" type="number" min="1" max="5" value="1" style="width:80px"></div>
+            <div style="align-self:end"><button class="sec" id="btnStageRoundOne">Save completed pairing results</button></div>
+          </div>
+      <div id="roundOnePairingMsg"></div>
+    </div>
+
+    <div class="card">
+      <h2>Paste standings / import roster</h2>
+      <label for="paste">paste your standings sheet here. The app reads player names and USCF ratings.
+        For a new month, import the roster, set any requested byes, then generate Round 1. To resume,
+        first save the completed pairing sheet above, then import its standings here to prepare the next round.</label>
       <textarea id="paste" placeholder="Joshini Sudhakar, 1989
 Mrinalini Sudhakar, 1139"></textarea>
       <div class="btns">
-        <button id="btnParse">Add these players</button>
+        <button id="btnParse">Import standings / roster</button>
         <button class="sec" id="btnFile">Import file&hellip;</button>
         <input type="file" id="fileIn" accept=".txt,.csv,.tsv,text/plain" hidden>
         <button class="ghost" id="btnAddOne">Add blank player</button>
@@ -234,6 +250,14 @@ Mrinalini Sudhakar, 1139"></textarea>
         <button class="sec" id="btnPrint">Print pairing sheet</button>
         <button class="danger" id="btnUndoRound">Delete last round</button>
       </div>
+      <details style="margin-top:18px">
+        <summary class="muted small" style="cursor:pointer">Import results for the round just played</summary>
+        <label for="pairingPaste" style="margin-top:12px">paste the completed pairing sheet with White, Black, and results</label>
+        <textarea id="pairingPaste" rows="6" style="min-height:110px" placeholder="11 0   Roger Hale (0.0)         1   Jordan Timm (0.0)
+12 ½   Eric Gahlon (0.0)        ½   Darrel Bimberg (0.0)
+   ½   Spencer Trana (0.0)          BYE"></textarea>
+        <div class="btns"><button class="sec" id="btnImportPairingSheet">Apply pairing sheet</button></div>
+      </details>
       <div id="roundMsg"></div>
       <div id="roundList"></div>
     </div>
@@ -271,6 +295,7 @@ const STORE_KEY = "swissPairingEvent.v1";
 
 let ev = newEvent();
 let nextPid = 1;
+let stagedPairingSheet = null;
 
 function newEvent(){
   const now = new Date();
@@ -334,6 +359,7 @@ function parseLine(raw){
   let line = raw.replace(/\t/g, " ").trim();
   if (!line) return null;
   if (/^[-=_*#]{3,}$/.test(line)) return null;                       // separator rules
+  if (/\bname\b/i.test(line) && /\brating\b/i.test(line) && /\brd\s*\d+\b/i.test(line)) return null;
   if (/^(pair|no\.?|num|rank|#)?\s*(player|name)\b/i.test(line) &&
       /rat(ing)?|uscf|score|pts/i.test(line)) return null;           // header row
 
@@ -391,18 +417,133 @@ function parsePlayers(text){
   const found = [], skipped = [];
   text.split(/\r?\n/).forEach(l => {
     if (!l.trim()) return;
+    if (/\bname\b/i.test(l) && /\brating\b/i.test(l) && /\brd\s*\d+\b/i.test(l)) return;
     const p = parseLine(l);
     if (p) found.push(p); else skipped.push(l.trim());
   });
   return { found, skipped };
 }
+function parseWallChart(text){
+  const lines = text.split(/\r?\n/);
+  const header = lines.find(line => /\brd\s*1\b/i.test(line) && /\bname\b/i.test(line));
+  if (!header) return null;
+  const roundColumns = Array.from(header.matchAll(/\brd\s*\d+\b/gi)).map(match => match.index);
+  const roundCount = roundColumns.length;
+  const rows = lines.map(line => {
+    const match = line.match(/^\s*(\d{1,3})\s+(.+?)\s+(\d{1,4}|unr|unrated)\s+(.*)$/i);
+    if (!match) return null;
+    const remainderStart = line.indexOf(match[4]);
+    const results = roundColumns.map((column, index) => {
+      const end = index + 1 < roundColumns.length ? roundColumns[index + 1] : line.length;
+      return (line.slice(column, end).match(/[WLDBHU](?:\d{1,3}|-{3,4})/i) || [""])[0].toUpperCase();
+    });
+    // Some copied wall charts collapse whitespace; retain the old token parser as a fallback.
+    if (remainderStart >= 0){
+      const compact = (match[4].match(/[WLDBHU](?:\d{1,3}|-{3,4})/gi) || []).map(token => token.toUpperCase());
+      if (compact.length > results.filter(Boolean).length)
+        compact.forEach((token, index) => { if (index < results.length) results[index] = token; });
+    }
+    return { no:+match[1], name:clean(match[2]), rating:/^\d+$/.test(match[3]) ? +match[3] : 0, results };
+  }).filter(Boolean);
+  return rows.length >= 2 && roundCount ? { rows, roundCount } : null;
+}
+function importWallChart(chart){
+  const ranked = new Map();
+  chart.rows.forEach(row => ranked.set(row.no, addPlayer(row)));
+  const dates = roundDates(), warnings = [];
+  for (let roundNo = 1; roundNo <= chart.roundCount; roundNo++){
+    const hasResults = chart.rows.some(row => row.results[roundNo - 1]);
+    if (!hasResults) break;
+    const boards = [], byes = [], seen = new Set();
+    chart.rows.forEach(row => {
+      const token = row.results[roundNo - 1];
+      if (!token) return;
+      const player = ranked.get(row.no), code = token[0], target = token.slice(1);
+      if (target.startsWith("-")){
+        if (code === "H") byes.push({ id:player.id, type:"half" });
+        else if (code === "B") byes.push({ id:player.id, type:"full" });
+        else if (code === "U") byes.push({ id:player.id, type:"unplayed" });
+        return;
+      }
+      const opponentNo = +target, opponent = ranked.get(opponentNo);
+      const key = [row.no, opponentNo].sort((a,b) => a-b).join("-");
+      if (!opponent || seen.has(key)) return;
+      seen.add(key);
+      const opponentToken = chart.rows.find(other => other.no === opponentNo)?.results[roundNo - 1] || "";
+      const expected = code === "W" ? `L${row.no}` : code === "L" ? `W${row.no}` : `D${row.no}`;
+      if ((code === "W" || code === "L" || code === "D") && opponentToken && opponentToken !== expected)
+        warnings.push(`Round ${roundNo}: ${row.name} and ${opponent.name} have conflicting results.`);
+      const white = row.no < opponentNo ? player : opponent;
+      const black = row.no < opponentNo ? opponent : player;
+      const whiteCode = white.id === player.id ? code : opponentToken[0];
+      boards.push({ w:white.id, b:black.id, result:whiteCode === "W" ? "W" : whiteCode === "L" ? "B" : "D" });
+    });
+    const accountedFor = boards.length * 2 + byes.length;
+    if (!boards.length || accountedFor < Math.max(2, chart.rows.length - 1)){
+      warnings.push(`Round ${roundNo} was ignored because its standings entries do not form a complete pairing round.`);
+      break;
+    }
+    ev.roundData.push({ no:roundNo, date:dates[roundNo-1] ? dates[roundNo-1].toISOString().slice(0,10) : "", boards, byes });
+  }
+  return warnings;
+}
+function scoreFromSheet(value){
+  return value === "1" || value === "1.0" ? 1 : value === "½" || value === "1/2" || value === "0.5" ? 0.5 : 0;
+}
+function parsePairingSheet(text){
+  const boards = [], byes = [], skipped = [];
+  text.split(/\r?\n/).forEach(line => {
+    const trimmed = line.trim();
+    if (!trimmed || /^(bd|res|white|black)/i.test(trimmed)) return;
+    const game = trimmed.match(/^\d+\s+(0(?:\.0)?|1(?:\.0)?|½|1\/2)\s+(.+?)\s+\([^)]*\)\s+(0(?:\.0)?|1(?:\.0)?|½|1\/2)\s+(.+?)\s+\([^)]*\)\s*$/);
+    if (game){
+      const white = clean(game[2]), black = clean(game[4]);
+      const whiteScore = scoreFromSheet(game[1]), blackScore = scoreFromSheet(game[3]);
+      const result = whiteScore === 1 && blackScore === 0 ? "W"
+        : whiteScore === 0 && blackScore === 1 ? "B"
+        : whiteScore === 0.5 && blackScore === 0.5 ? "D" : "DF";
+      boards.push({ white, black, result });
+      return;
+    }
+    const bye = trimmed.match(/^(?:\d+\s+)?(0(?:\.0)?|1(?:\.0)?|½|1\/2)\s+(.+?)\s+\([^)]*\)\s+BYE\s*$/i);
+    if (bye){
+      const points = scoreFromSheet(bye[1]);
+      byes.push({ name:clean(bye[2]), type:points === 1 ? "full" : points === 0.5 ? "half" : "unplayed" });
+      return;
+    }
+    skipped.push(trimmed);
+  });
+  return { boards, byes, skipped };
+}
+function applyPairingSheet(text, roundNo){
+  const sheet = parsePairingSheet(text), players = new Map(ev.players.map(p => [p.name.toLowerCase(), p]));
+  const rd = ev.roundData.find(r => r.no === roundNo);
+  if (!rd) return { error:`Round ${roundNo} is not imported yet. Import the wall chart first.` };
+  if (!sheet.boards.length && !sheet.byes.length) return { error:"No pairing rows were recognized. Include player names followed by scores and (0.0)." };
+  const boards = [], byes = [], missing = [];
+  sheet.boards.forEach(game => {
+    const white = players.get(game.white.toLowerCase()), black = players.get(game.black.toLowerCase());
+    if (!white || !black){ missing.push(`${game.white} / ${game.black}`); return; }
+    boards.push({ w:white.id, b:black.id, result:game.result });
+  });
+  sheet.byes.forEach(bye => {
+    const player = players.get(bye.name.toLowerCase());
+    if (!player){ missing.push(bye.name); return; }
+    byes.push({ id:player.id, type:bye.type });
+  });
+  if (missing.length) return { error:`These names do not match the imported roster: ${missing.slice(0,3).join("; ")}${missing.length > 3 ? " ..." : ""}` };
+  rd.boards = boards; rd.byes = byes;
+  return { boards:boards.length, byes:byes.length, skipped:sheet.skipped.length };
+}
 
 /* ---------------- Player model ---------------- */
 function addPlayer(p){
-  ev.players.push({
+  const player = {
     id: nextPid++, name: p.name, rating: p.rating || 0,
     uscf: p.uscf || "", status: "active", byeRequests: {}
-  });
+  };
+  ev.players.push(player);
+  return player;
 }
 function activePlayers(){ return ev.players.filter(p => p.status === "active"); }
 function byId(id){ return ev.players.find(p => p.id === id); }
@@ -792,17 +933,11 @@ function adopt(o){
   nextPid = ev.players.reduce((m,p) => Math.max(m, p.id), 0) + 1;
 }
 function save(){
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(ev)); } catch(e){}
+  // Event data is intentionally session-only; use JSON export to retain it.
 }
 function load(){
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (!raw) return false;
-    const o = JSON.parse(raw);
-    if (!o || !Array.isArray(o.players)) return false;
-    adopt(o);
-    return true;
-  } catch(e){ return false; }
+  try { localStorage.removeItem(STORE_KEY); } catch(e){}
+  return false;
 }
 
 /* ---------------- Wiring ---------------- */
@@ -840,6 +975,25 @@ function initForm(){
 document.getElementById("btnParse").addEventListener("click", () => {
   const text = document.getElementById("paste").value;
   if (!text.trim()){ msg("parseMsg", "Paste a list first.", "warn"); return; }
+  const chart = parseWallChart(text);
+  if (stagedPairingSheet && chart && ev.players.length === 0 && ev.roundData.length === 0){
+    const warnings = importWallChart(chart);
+    const outcome = applyPairingSheet(stagedPairingSheet.text, stagedPairingSheet.roundNo);
+    if (outcome.error){
+      ev = newEvent(); nextPid = 1;
+      msg("parseMsg", `The saved pairing sheet could not be applied: ${outcome.error}`, "warn");
+      return;
+    }
+    const completed = ev.roundData.length;
+    stagedPairingSheet = null;
+    document.getElementById("roundOnePairingPaste").value = "";
+    msg("roundOnePairingMsg", "", "ok");
+    msg("parseMsg", `Imported ${chart.rows.length} players and ${completed} completed rounds. Applied Round ${outcome.roundNo || completed} pairing results; ready to pair Round ${completed + 1}.` +
+      (warnings.length ? ` ${warnings.length} result conflict(s) found in the standings chart.` : ""), warnings.length ? "warn" : "ok");
+    document.getElementById("paste").value = "";
+    save(); render(); showTab("rounds");
+    return;
+  }
   const { found, skipped } = parsePlayers(text);
   const existing = new Set(ev.players.map(p => p.name.toLowerCase()));
   let added = 0, dupes = 0;
@@ -847,12 +1001,29 @@ document.getElementById("btnParse").addEventListener("click", () => {
     if (existing.has(p.name.toLowerCase())){ dupes++; return; }
     existing.add(p.name.toLowerCase()); addPlayer(p); added++;
   });
+  let recovery = "";
+  if (stagedPairingSheet && stagedPairingSheet.roundNo === 1 && ev.roundData.length === 0 && ev.players.length){
+    const dates = roundDates();
+    ev.roundData.push({ no:1, date:dates[0] ? dates[0].toISOString().slice(0,10) : "", boards:[], byes:[] });
+    const outcome = applyPairingSheet(stagedPairingSheet.text, 1);
+    if (outcome.error){
+      ev.roundData = [];
+      recovery = ` Round 1 results were not applied: ${outcome.error}`;
+    } else {
+      recovery = ` Rebuilt Round 1 from ${outcome.boards} boards and ${outcome.byes} byes; ready to pair Round 2.`;
+      stagedPairingSheet = null;
+      document.getElementById("roundOnePairingPaste").value = "";
+      msg("roundOnePairingMsg", "", "ok");
+    }
+  }
   let m = `Added ${added} player${added===1?"":"s"}.`;
   if (dupes) m += ` Skipped ${dupes} duplicate name${dupes===1?"":"s"}.`;
   if (skipped.length) m += ` ${skipped.length} line(s) could not be read: ${skipped.slice(0,3).join(" | ")}${skipped.length>3?" …":""}`;
+  m += recovery || " Set any requested byes below, then open Pairings and generate Round 1.";
   msg("parseMsg", m, skipped.length || dupes ? "warn" : "ok");
   document.getElementById("paste").value = "";
   save(); render();
+  if (recovery && !recovery.includes("not applied")) showTab("rounds");
 });
 
 document.getElementById("btnFile").addEventListener("click", () => document.getElementById("fileIn").click());
@@ -862,6 +1033,21 @@ document.getElementById("fileIn").addEventListener("change", e => {
   r.onload = () => { document.getElementById("paste").value = r.result; document.getElementById("btnParse").click(); };
   r.readAsText(f);
   e.target.value = "";
+});
+
+document.getElementById("btnStageRoundOne").addEventListener("click", () => {
+  const text = document.getElementById("roundOnePairingPaste").value;
+  const roundNo = +document.getElementById("resumeRound").value;
+  const sheet = parsePairingSheet(text);
+  if (!text.trim() || (!sheet.boards.length && !sheet.byes.length)){
+    msg("roundOnePairingMsg", "No pairing rows were recognized. Include player names, result scores, and (0.0).", "warn");
+    return;
+  }
+  stagedPairingSheet = { text, roundNo };
+  msg("roundOnePairingMsg", `Saved ${sheet.boards.length} boards and ${sheet.byes.length} byes for Round ${roundNo}. Now paste the standings below.`, "ok");
+  const standingsBox = document.getElementById("paste");
+  standingsBox.scrollIntoView({ behavior:"smooth", block:"center" });
+  standingsBox.focus();
 });
 
 document.getElementById("btnAddOne").addEventListener("click", () => {
@@ -919,8 +1105,10 @@ document.getElementById("roundList").addEventListener("change", e => {
 
 document.getElementById("btnGenerate").addEventListener("click", () => {
   const last = ev.roundData[ev.roundData.length - 1];
-  if (last && last.boards.some(b => !b.result) &&
-      !confirm(`Round ${last.no} still has unreported games (counted as 0-0). Pair the next round anyway?`)) return;
+  if (last && last.boards.some(b => !b.result)){
+    msg("roundMsg", `Round ${last.no} is not complete. Paste its completed pairing sheet first, then generate Round ${last.no + 1}.`, "warn");
+    return;
+  }
   const r = generateRound();
   if (r.error){ msg("roundMsg", r.error, "warn"); return; }
   msg("roundMsg", `Round ${ev.roundData.length} paired.` +
@@ -933,13 +1121,26 @@ document.getElementById("btnUndoRound").addEventListener("click", () => {
   if (!confirm(`Delete round ${ev.roundData.length} and its results?`)) return;
   ev.roundData.pop(); save(); render();
 });
+document.getElementById("btnImportPairingSheet").addEventListener("click", () => {
+  const text = document.getElementById("pairingPaste").value;
+  if (!text.trim()){ msg("roundMsg", "Paste a pairing sheet first.", "warn"); return; }
+  const roundNo = ev.roundData.length;
+  if (!roundNo){ msg("roundMsg", "Generate Round 1 before importing its completed pairing sheet.", "warn"); return; }
+  const outcome = applyPairingSheet(text, roundNo);
+  if (outcome.error){ msg("roundMsg", outcome.error, "warn"); return; }
+  document.getElementById("pairingPaste").value = "";
+  msg("roundMsg", `Round ${roundNo} updated with ${outcome.boards} boards and ${outcome.byes} byes from the pairing sheet.` +
+    (outcome.skipped ? ` ${outcome.skipped} unrecognized line(s) ignored.` : ""), outcome.skipped ? "warn" : "ok");
+  save(); render();
+});
 document.getElementById("btnCopyPairings").addEventListener("click", () => copyText(pairingsText()));
 document.getElementById("btnPrint").addEventListener("click", () => window.print());
 document.getElementById("btnCopyStand").addEventListener("click", () => copyText(standingsText(false)));
 document.getElementById("btnCsvStand").addEventListener("click", () =>
   download(`standings-${MONTHS[ev.month]}-${ev.year}.csv`, standingsText(true), "text/csv"));
 
-document.getElementById("btnSave").addEventListener("click", () => { save(); msg("parseMsg", "Event saved in this browser.", "ok"); });
+document.getElementById("btnSave").addEventListener("click", () =>
+  msg("parseMsg", "This event is not saved automatically. Use Export event (.json) to keep it after closing this page.", "warn"));
 document.getElementById("btnExportJson").addEventListener("click", () =>
   download(`swiss-${MONTHS[ev.month]}-${ev.year}.json`, JSON.stringify(ev, null, 2), "application/json"));
 document.getElementById("btnImportJson").addEventListener("click", () => {
